@@ -21,21 +21,21 @@ train <- vroom("train.csv")
 
 
 # Data Imputation (Practice) ------------------------------------------------
-missing <- vroom("trainWithMissingValues.csv")
+#missing <- vroom("trainWithMissingValues.csv")
 
-imputeRecipe <- recipe(type ~ . , data=missing) %>% 
-  update_role(id,new_role="ID") %>% 
-  step_string2factor(all_nominal_predictors()) %>% 
-  step_impute_knn(hair_length, impute_with = c('has_soul','color'), neighbors=5 ) %>% 
-  step_impute_knn(rotting_flesh, impute_with = c('has_soul','color','hair_length'), neighbors=5 ) %>% 
-  step_impute_knn(bone_length, impute_with = c('has_soul','color','hair_length','rotting_flesh'),neighbors=5)
+#imputeRecipe <- recipe(type ~ . , data=missing) %>% 
+ # update_role(id,new_role="ID") %>% 
+  #step_string2factor(all_nominal_predictors()) %>% 
+  #step_impute_knn(hair_length, impute_with = c('has_soul','color'), neighbors=5 ) %>% 
+  #step_impute_knn(rotting_flesh, impute_with = c('has_soul','color','hair_length'), neighbors=5 ) %>% 
+ # step_impute_knn(bone_length, impute_with = c('has_soul','color','hair_length','rotting_flesh'),neighbors=5)
 
   
-preppedImpute <- prep(imputeRecipe)
-bakedImpute <- bake(preppedImpute, new_data = missing)
+#preppedImpute <- prep(imputeRecipe)
+#bakedImpute <- bake(preppedImpute, new_data = missing)
 
 
-rmse_vec(train[is.na(missing)],bakedImpute[is.na(missing)])
+#rmse_vec(train[is.na(missing)],bakedImpute[is.na(missing)])
 
 
 # Prep for Kaggle ---------------------------------------------------------
@@ -85,9 +85,9 @@ naiveGrid <- grid_regular(Laplace(),
                           levels = 25)
 
 #   folds for cross validation
-naiveFolds <- vfold_cv(train, v=15, repeats=1)
+naiveFolds <- vfold_cv(train, v=20, repeats=1)
 
-cl <- makePSOCKcluster(4)
+cl <- makePSOCKcluster(5)
 doParallel::registerDoParallel(cl)
 
 cvStart <- proc.time()
