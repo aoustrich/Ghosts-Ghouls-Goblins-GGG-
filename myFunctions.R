@@ -22,8 +22,11 @@ predict_export <- function(workflowName, newFileName){
   fileNum <- fileCount(newFileName)
   
   outputFilePath = paste0(directory,newFileName,"_",fileNum,".csv")
+  outputFileName = paste0(newFileName,"_",fileNum,".csv")
   
   vroom_write(submission, file = outputFilePath, delim=',')
+  
+  return(outputFileName)
 }
 
 
@@ -40,8 +43,26 @@ parseArgValues <- function(argsList,argument){
 }
   
   
+
+# Store and Print Values --------------------------------------------------
+
+store_print <- function(results,cores,levels,folds){
   
+  runTime <- results[1]
+  outputFileName <- results[2]
   
+  output <- data.frame(outputFileName,runTime,cores,levels,folds,NA)
+  
+  write.table(output, "./submissions/allResults.csv",
+              na = "$",
+              quote = FALSE,
+              row.names = FALSE,
+              col.names = FALSE,
+              append = TRUE,
+              sep = ",")
+  
+  paste0(runTime, " to run on " , cores," Cores, ", levels, " Levels, ", folds, " Folds")
+}
   
   
   

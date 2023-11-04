@@ -126,20 +126,21 @@ run_naive_bayes <- function(numCores, numLevels, numFolds.v){
     fit(data=train)
   
   #   predict and export
-  predict_export(naiveFinalWF,"naiveBayesGLM")
+  outputCSV <-  predict_export(naiveFinalWF,"naiveBayesGLM")
   stopCluster(cl)
   
   funcRunTimeSeconds <- (proc.time() - funcStart)[3]
   period <- seconds_to_period(funcRunTimeSeconds)
   
-  sprintf('%02d:%02d:%02d', hour(period), minute(period), round(second(period),0))
+  time <- sprintf('%02d:%02d:%02d', hour(period), minute(period), round(second(period),0))
 
-  
+  return(list(time,outputCSV))
 } # end run_naive_bayes() function
 
 ## SVM ---------------------------------------------------------------------
 run_svm_radial <- function(numCores, numLevels, numFolds.v){
-    
+  funcStart <- proc.time()  
+  
   #   make model with radial kernel
   svmRadial <- svm_rbf(rbf_sigma=tune(), cost=tune()) %>% 
                       set_mode("classification") %>%
@@ -180,11 +181,17 @@ run_svm_radial <- function(numCores, numLevels, numFolds.v){
                         fit(data=train)
   
   #   predict and export
-  predict_export(svmRadialFinalWF,"svmRadial")
+  outputCSV <-  predict_export(svmRadialFinalWF,"svmRadial")
   stopCluster(cl)
   
-  print(proc.time())
-
+  ########################################
+  
+  funcRunTimeSeconds <- (proc.time() - funcStart)[3]
+  period <- seconds_to_period(funcRunTimeSeconds)
+  
+  time <- sprintf('%02d:%02d:%02d', hour(period), minute(period), round(second(period),0)) 
+  
+  return(list(time,outputCSV))
 } # end run_svm_radial() function
 
 
