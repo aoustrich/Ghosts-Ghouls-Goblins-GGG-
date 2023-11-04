@@ -7,4 +7,6 @@ cores <- parseArgValues(args,"-C")
 levels <- parseArgValues(args,"-L")
 folds <- parseArgValues(args,"-V")
 
+paste0(cores," Cores, ", levels, " Levels, ", folds, " Folds")
+
 run_svm_radial(cores, levels, folds)
