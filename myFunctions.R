@@ -22,7 +22,7 @@ predict_export <- function(workflowName, newFileName){
   fileNum <- fileCount(newFileName)
   
   outputFilePath = paste0(directory,newFileName,"_",fileNum,".csv")
-  outputFileName = paste0(newFileName,"_",fileNum,".csv")
+  outputFileName = paste0(newFileName,"_",fileNum)
   
   vroom_write(submission, file = outputFilePath, delim=',')
   
@@ -38,6 +38,7 @@ parseArgValues <- function(argsList,argument){
     if (argsList[i] == argument) {
       arg_value <- as.numeric(argsList[i + 1])
     }
+    else{ arg_value <- NA }
   }
   return(arg_value)
 }
@@ -46,12 +47,16 @@ parseArgValues <- function(argsList,argument){
 
 # Store and Print Values --------------------------------------------------
 
-store_print <- function(results,cores,levels,folds){
+store_print <- function(results,cores,levels,folds,trees){
   
   runTime <- results[1]
   outputFileName <- results[2]
   
-  output <- data.frame(outputFileName,runTime,cores,levels,folds,NA)
+  if (isna(trees)){
+    trees = 0
+  }
+  
+  output <- data.frame(outputFileName,runTime,cores,levels,folds,trees,NA)
   
   write.table(output, "./submissions/allResults.csv",
               na = "$",
@@ -60,8 +65,11 @@ store_print <- function(results,cores,levels,folds){
               col.names = FALSE,
               append = TRUE,
               sep = ",")
-  
-  paste0(runTime, " to run on " , cores," Cores, ", levels, " Levels, ", folds, " Folds")
+  if (trees == 0){
+      paste0(runTime, " to run on " , cores," Cores, ", levels, " Levels, ", folds, " Folds")
+  } else{
+    paste0(runTime, " to run on " , cores," Cores, ", levels, " Levels, ", folds, " Folds, ", trees," Trees" )
+  }
 }
   
   

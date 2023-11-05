@@ -1,68 +1,18 @@
-library(tidymodels)
-library(vroom)
-library(tidyverse)
-library(discrim) # for naive bayes engine
-library(naivebayes) # naive bayes
-library(embed) #used for target encoding
-library(parallel)
-library(kernlab) #for svm
+library(tidymodels,quietly=T)
+library(vroom,quietly=T)
+library(tidyverse,quietly=T)
+library(discrim,quietly=T) # for naive bayes engine
+library(naivebayes,quietly=T) # naive bayes
+library(embed,quietly=T) #used for target encoding
+library(parallel,quietly=T)
+library(kernlab,quietly=T) #for svm
 
 source("myFunctions.R")
 
 # Data Gathering ----------------------------------------------------------
 
-test <- vroom("test.csv")
-train <- vroom("train.csv")
-
-# # EDA ---------------------------------------------------------------------
-# ggplot(data=train, aes(x=type, y=bone_length)) +
-#   geom_boxplot()
-
-# Data Imputation (Practice) ------------------------------------------------
-#missing <- vroom("trainWithMissingValues.csv")
-
-#imputeRecipe <- recipe(type ~ . , data=missing) %>% 
- # update_role(id,new_role="ID") %>% 
-  #step_string2factor(all_nominal_predictors()) %>% 
-  #step_impute_knn(hair_length, impute_with = c('has_soul','color'), neighbors=5 ) %>% 
-  #step_impute_knn(rotting_flesh, impute_with = c('has_soul','color','hair_length'), neighbors=5 ) %>% 
- # step_impute_knn(bone_length, impute_with = c('has_soul','color','hair_length','rotting_flesh'),neighbors=5)
-
-  
-#preppedImpute <- prep(imputeRecipe)
-#bakedImpute <- bake(preppedImpute, new_data = missing)
-
-
-#rmse_vec(train[is.na(missing)],bakedImpute[is.na(missing)])
-
-
-# # Make function to predict and export ----------------------------------------
-# predict_export <- function(workflowName, newFileName){
-#   preds <- workflowName %>%
-#             predict(new_data = test, type="class")
-#   
-#   submission <- as.data.frame(cbind(test$id, as.character(preds$.pred_class)))
-#   colnames(submission) <- c("id","type")
-#   
-#   directory = "./submissions/"
-#   
-#   fileCount <- function(newName) {
-#     files <- list.files(path="./submissions/",pattern = paste0("^", newName, "_[0-9]+.csv"), recursive=T)
-#     if(length(files) == 0){
-#       return(1)
-#     }
-#     else{
-#       maxNum <- max(as.numeric(str_extract_all(files,"[0-9]+")))
-#       return(maxNum+1)
-#     }
-#   }
-#   
-#   fileNum <- fileCount(newFileName)
-#   
-#   outputFilePath = paste0(directory,newFileName,"_",fileNum,".csv")
-#   
-#   vroom_write(submission, file = outputFilePath, delim=',')
-# }
+test <- vroom("./Data/test.csv")
+train <- vroom("./Data/train.csv")
 
 ## Recipes ------------------------------------------------------------------
 
@@ -75,12 +25,14 @@ hauntedRecipeNoID <- recipe(type ~ . , data=train) %>%
 #   Ignore `id` by updating its role
 hauntedRecipe <- recipe(type ~ . , data=train) %>% 
                     update_role(id,new_role="ID") %>%
-                    step_lencode_glm(all_nominal_predictors(), outcome=vars(type)) 
+                    step_lencode_glm(all_nominal_predictors(), outcome=vars(type)) %>% 
+                    step_kpca_rbf(all_predictors()) 
 
 # prep(hauntedRecipe,
 #       verbose = T,
 #       retain = T,
 #       strings_as_factors = T)
+
 
 ## Naive Bayes -------------------------------------------------------------
 run_naive_bayes <- function(numCores, numLevels, numFolds.v){
@@ -106,14 +58,11 @@ run_naive_bayes <- function(numCores, numLevels, numFolds.v){
   cl <- makePSOCKcluster(numCores)
   doParallel::registerDoParallel(cl)
   
-  cvStart <- proc.time()
   #   fit model with cross validation
   naiveResultsCV <- naiveWF %>% 
     tune_grid(resamples=naiveFolds,
               grid=naiveGrid,
               metric_set("accuracy"))
-  
-  cvStart - proc.time()
   
   #   find best tune
   naiveBestTune <- naiveResultsCV %>%
@@ -162,14 +111,11 @@ run_svm_radial <- function(numCores, numLevels, numFolds.v){
   cl <- makePSOCKcluster(numCores)
   doParallel::registerDoParallel(cl)
   
-  cvStart <- proc.time()
   #   fit model with cross validation
   svmRadialResultsCV <- svmRadialWF %>% 
                           tune_grid(resamples=svmRadialFolds,
                                     grid=svmRadialGrid,
                                     metric_set("accuracy"))
-  
-  cvStart - proc.time()
   
   #   find best tune
   svmRadialBestTune <- svmRadialResultsCV %>%
@@ -195,4 +141,59 @@ run_svm_radial <- function(numCores, numLevels, numFolds.v){
 } # end run_svm_radial() function
 
 
-
+# Random Forest -----------------------------------------------------------
+run_random_forest <- function(numCores, numLevels, numFolds.v, numTrees){
+    funcStart <- proc.time()  
+  
+    randForestModel <- rand_forest(mtry = tune(),
+                                   min_n=tune(),
+                                   trees=numTrees) %>% 
+      set_engine("ranger") %>% 
+      set_mode("classification")
+    
+    forestWF <- workflow() %>% 
+      add_recipe(hauntedRecipe) %>% 
+      add_model(randForestModel)
+    
+    # create tuning grid
+    forest_tuning_grid <- grid_regular(mtry(range = c(1L, unknown()) ),
+                                       min_n(),
+                                       levels = numLevels)
+    
+    # split data for cross validation
+    rfolds <- vfold_cv(train, v = numFolds.v, repeats=1)
+    
+    
+    cl <- makePSOCKcluster(numCores)
+    doParallel::registerDoParallel(cl)
+    
+    # run cross validation
+    treeCVResults <- forestWF %>% 
+      tune_grid(resamples = rfolds,
+                grid = forest_tuning_grid,
+                metrics=metric_set(accuracy)) 
+    
+    # select best model
+    best_tuneForest <- treeCVResults %>% 
+      select_best("accuracy")
+    
+    # finalize workflow
+    finalForestWF <- 
+      forestWF %>% 
+      finalize_workflow(best_tuneForest) %>% 
+      fit(data=train)
+    
+    #   predict and export
+    outputCSV <-  predict_export(finalForestWF,"randomForest")
+    stopCluster(cl)
+    
+    ##############################################
+    
+    funcRunTimeSeconds <- (proc.time() - funcStart)[3]
+    period <- seconds_to_period(funcRunTimeSeconds)
+    
+    time <- sprintf('%02d:%02d:%02d', hour(period), minute(period), round(second(period),0)) 
+    
+    return(list(time,outputCSV))
+}
+    
