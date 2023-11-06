@@ -28,13 +28,10 @@ hauntedRecipe <- recipe(type ~ . , data=train) %>%
                     step_lencode_glm(all_nominal_predictors(), outcome=vars(type)) %>% 
                     step_kpca_rbf(all_predictors()) 
 
-prepped <- prep(hauntedRecipe,
-      verbose = T,
-      retain = T,
-      strings_as_factors = T)
+prepped<- prep(hauntedRecipe)
 baked <- bake(prepped, new_data=train)
 
-
+print(ncol(baked))
 ## Naive Bayes -------------------------------------------------------------
 run_naive_bayes <- function(numCores, numLevels, numFolds.v){
   funcStart <- proc.time()
