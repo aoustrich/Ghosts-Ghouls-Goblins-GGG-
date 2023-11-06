@@ -7,6 +7,7 @@ library(embed,quietly=T) #used for target encoding
 library(parallel,quietly=T)
 library(kernlab,quietly=T) #for svm
 library(keras) # for neural net
+library(tensorflow)
 
 source("myFunctions.R")
 
@@ -19,7 +20,7 @@ train <- vroom("./Data/train.csv")
 
 #   Treat `id` as a predictor (somehow this makes the Naive Bayes models better)
 # hauntedRecipeNoID <- recipe(type ~ . , data=train) %>% 
-                        step_lencode_glm(all_nominal_predictors(), outcome=vars(type)) 
+#                        step_lencode_glm(all_nominal_predictors(), outcome=vars(type)) 
 
 # prep(hauntedRecipeNoID,verbose=T)
 

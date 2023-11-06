@@ -17,7 +17,7 @@ Type 'demo()' for some demos, 'help()' for on-line help, or
 'help.start()' for an HTML browser interface to help.
 Type 'q()' to quit R.
 
-> library(tidymodels)
+> library(tidymodels,quietly=T)
 ── Attaching packages ────────────────────────────────────── tidymodels 1.1.1 ──
 ✔ broom        1.0.5     ✔ recipes      1.0.8
 ✔ dials        1.2.0     ✔ rsample      1.2.0
@@ -32,8 +32,8 @@ Type 'q()' to quit R.
 ✖ dplyr::filter()  masks stats::filter()
 ✖ dplyr::lag()     masks stats::lag()
 ✖ recipes::step()  masks stats::step()
-• Learn how to get started at https://www.tidymodels.org/start/
-> library(vroom)
+• Use tidymodels_prefer() to resolve common conflicts.
+> library(vroom,quietly=T)
 
 Attaching package: ‘vroom’
 
@@ -45,7 +45,7 @@ The following object is masked from ‘package:scales’:
 
     col_factor
 
-> library(tidyverse)
+> library(tidyverse,quietly=T)
 ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
 ✔ forcats   1.0.0     ✔ readr     2.1.4
 ✔ lubridate 1.9.3     ✔ stringr   1.5.0
@@ -77,7 +77,7 @@ The following object is masked from ‘package:scales’:
 ✖ readr::problems()        masks vroom::problems()
 ✖ readr::spec()            masks vroom::spec(), yardstick::spec()
 ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
-> library(discrim) # for naive bayes engine
+> library(discrim,quietly=T) # for naive bayes engine
 
 Attaching package: ‘discrim’
 
@@ -85,14 +85,41 @@ The following object is masked from ‘package:dials’:
 
     smoothness
 
-> library(naivebayes) # naive bayes
+> library(naivebayes,quietly=T) # naive bayes
 naivebayes 0.9.7 loaded
-> library(embed) #used for target encoding
-> library(parallel)
+> library(embed,quietly=T) #used for target encoding
+> library(parallel,quietly=T)
+> library(kernlab,quietly=T) #for svm
+
+Attaching package: ‘kernlab’
+
+The following object is masked from ‘package:purrr’:
+
+    cross
+
+The following object is masked from ‘package:ggplot2’:
+
+    alpha
+
+The following object is masked from ‘package:scales’:
+
+    alpha
+
+> library(keras) # for neural net
+
+Attaching package: ‘keras’
+
+The following object is masked from ‘package:yardstick’:
+
+    get_weights
+
+> library(tensorflow)
+> 
+> source("myFunctions.R")
 > 
 > # Data Gathering ----------------------------------------------------------
 > 
-> test <- vroom("test.csv")
+> test <- vroom("./Data/test.csv")
 Rows: 529 Columns: 6
 ── Column specification ────────────────────────────────────────────────────────
 Delimiter: ","
@@ -101,7 +128,7 @@ dbl (5): id, bone_length, rotting_flesh, hair_length, has_soul
 
 ℹ Use `spec()` to retrieve the full column specification for this data.
 ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
-> train <- vroom("train.csv")
+> train <- vroom("./Data/train.csv")
 Rows: 371 Columns: 7
 ── Column specification ────────────────────────────────────────────────────────
 Delimiter: ","
@@ -111,116 +138,309 @@ dbl (5): id, bone_length, rotting_flesh, hair_length, has_soul
 ℹ Use `spec()` to retrieve the full column specification for this data.
 ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
 > 
-> # train$color <- as.factor(train$color)
-> # train$type <- as.factor(train$type)
+> ## Recipes ------------------------------------------------------------------
 > 
-> # # EDA ---------------------------------------------------------------------
-> # ggplot(data=train, aes(x=type, y=bone_length)) +
-> #   geom_boxplot()
+> #   Treat `id` as a predictor (somehow this makes the Naive Bayes models better)
+> # hauntedRecipeNoID <- recipe(type ~ . , data=train) %>% 
+> #                        step_lencode_glm(all_nominal_predictors(), outcome=vars(type)) 
 > 
+> # prep(hauntedRecipeNoID,verbose=T)
 > 
-> 
-> # Data Imputation (Practice) ------------------------------------------------
-> #missing <- vroom("trainWithMissingValues.csv")
-> 
-> #imputeRecipe <- recipe(type ~ . , data=missing) %>% 
->  # update_role(id,new_role="ID") %>% 
->   #step_string2factor(all_nominal_predictors()) %>% 
->   #step_impute_knn(hair_length, impute_with = c('has_soul','color'), neighbors=5 ) %>% 
->   #step_impute_knn(rotting_flesh, impute_with = c('has_soul','color','hair_length'), neighbors=5 ) %>% 
->  # step_impute_knn(bone_length, impute_with = c('has_soul','color','hair_length','rotting_flesh'),neighbors=5)
-> 
->   
-> #preppedImpute <- prep(imputeRecipe)
-> #bakedImpute <- bake(preppedImpute, new_data = missing)
-> 
-> 
-> #rmse_vec(train[is.na(missing)],bakedImpute[is.na(missing)])
-> 
-> 
-> # Prep for Kaggle ---------------------------------------------------------
-> 
-> # Make function to predict and export
-> predict_export <- function(workflowName, fileName){
-+   # make predictions and prep data for Kaggle format
-+   
-+   preds <- workflowName %>%
-+     predict(new_data = test, type="class")
-+   
-+   submission <- as.data.frame(cbind(test$id, as.character(preds$.pred_class)))
-+   colnames(submission) <- c("id","type")
-+   
-+   directory = "./submissions/"
-+   path = paste0(directory,fileName)
-+   
-+   vroom_write(submission, file = path, delim=',')
-+   # vroom_write(submission, file = "./submissions/naiveBayes.csv", delim=',')
-+   
-+ }
-> 
-> # Recipe ------------------------------------------------------------------
+> #   Ignore `id` by updating its role
 > hauntedRecipe <- recipe(type ~ . , data=train) %>% 
-+   # update_role(id,new_role="ID") %>%
-+   step_lencode_glm(all_nominal_predictors(), outcome=vars(type)) 
->   # step_dummy(all_nominal_predictors()) %>% 
->   # step_normalize(all_numeric_predictors())
++                     update_role(id,new_role="ID") %>%
++                     step_lencode_glm(all_nominal_predictors(), outcome=vars(type)) %>% 
++                     step_kpca_rbf(all_predictors()) 
 > 
-> preppedHauntedRecipe <- prep(hauntedRecipe)
-> # bakedHaunted <- bake(preppedHauntedRecipe, new_data=train)
+> prepped<- prep(hauntedRecipe)
+> baked <- bake(prepped, new_data=train)
+> 
 > 
 > ## Naive Bayes -------------------------------------------------------------
-> #   model
-> naiveModel <- naive_Bayes(Laplace=tune(), smoothness=tune()) %>% 
-+   set_mode("classification") %>% 
-+   set_engine("naivebayes")
+> run_naive_bayes <- function(numCores, numLevels, numFolds.v){
++   funcStart <- proc.time()
++   #   model
++   naiveModel <- naive_Bayes(Laplace=tune(), smoothness=tune()) %>% 
++     set_mode("classification") %>% 
++     set_engine("naivebayes")
++   
++   #   workflow
++   naiveWF <- workflow() %>% 
++     add_recipe(hauntedRecipeNoID) %>% 
++     add_model(naiveModel)
++   
++   #   tuning
++   naiveGrid <- grid_regular(Laplace(),
++                             smoothness(),
++                             levels = numLevels)
++   
++   #   folds for cross validation
++   naiveFolds <- vfold_cv(train, v=numFolds.v, repeats=1)
++   
++   cl <- makePSOCKcluster(numCores)
++   doParallel::registerDoParallel(cl)
++   
++   #   fit model with cross validation
++   naiveResultsCV <- naiveWF %>% 
++     tune_grid(resamples=naiveFolds,
++               grid=naiveGrid,
++               metric_set("accuracy"))
++   
++   #   find best tune
++   naiveBestTune <- naiveResultsCV %>%
++     select_best("accuracy")
++   
++   #   finalize the Workflow & fit it
++   naiveFinalWF <-
++     naiveWF %>%
++     finalize_workflow(naiveBestTune) %>%
++     fit(data=train)
++   
++   #   predict and export
++   outputCSV <-  predict_export(naiveFinalWF,"naiveBayesGLM")
++   stopCluster(cl)
++   
++   funcRunTimeSeconds <- (proc.time() - funcStart)[3]
++   period <- seconds_to_period(funcRunTimeSeconds)
++   
++   time <- sprintf('%02d:%02d:%02d', hour(period), minute(period), round(second(period),0))
++ 
++   return(list(time,outputCSV))
++ } # end run_naive_bayes() function
 > 
-> #   workflow
-> naiveWF <- workflow() %>% 
-+   add_recipe(hauntedRecipe) %>% 
-+   add_model(naiveModel)
+> ## SVM ---------------------------------------------------------------------
+> run_svm_radial <- function(numCores, numLevels, numFolds.v){
++   funcStart <- proc.time()  
++   
++   #   make model with radial kernel
++   svmRadial <- svm_rbf(rbf_sigma=tune(), cost=tune()) %>% 
++                       set_mode("classification") %>%
++                       set_engine("kernlab")
++   
++   #   create workflow
++   svmRadialWF <- workflow() %>% 
++                     add_recipe(hauntedRecipe) %>% 
++                     add_model(svmRadial)
++   
++   #   tuning
++   svmRadialGrid <- grid_regular(rbf_sigma(),
++                                 cost(),
++                                 levels = numLevels)
++ 
++   #   folds for cross validation
++   svmRadialFolds <- vfold_cv(train, v=numFolds.v, repeats=1)
++   
++   cl <- makePSOCKcluster(numCores)
++   doParallel::registerDoParallel(cl)
++   
++   #   fit model with cross validation
++   svmRadialResultsCV <- svmRadialWF %>% 
++                           tune_grid(resamples=svmRadialFolds,
++                                     grid=svmRadialGrid,
++                                     metric_set("accuracy"))
++   
++   #   find best tune
++   svmRadialBestTune <- svmRadialResultsCV %>%
++     select_best("accuracy")
++   
++   #   finalize the Workflow & fit it
++   svmRadialFinalWF <- svmRadialWF %>%
++                         finalize_workflow(svmRadialBestTune) %>%
++                         fit(data=train)
++   
++   #   predict and export
++   outputCSV <-  predict_export(svmRadialFinalWF,"svmRadial")
++   stopCluster(cl)
++   
++   ########################################
++   
++   funcRunTimeSeconds <- (proc.time() - funcStart)[3]
++   period <- seconds_to_period(funcRunTimeSeconds)
++   
++   time <- sprintf('%02d:%02d:%02d', hour(period), minute(period), round(second(period),0)) 
++   
++   return(list(time,outputCSV))
++ } # end run_svm_radial() function
 > 
-> #   tuning
-> naiveGrid <- grid_regular(Laplace(),
-+                           smoothness(),
-+                           levels = 25)
 > 
-> #   folds for cross validation
-> naiveFolds <- vfold_cv(train, v=20, repeats=1)
+> # Random Forest -----------------------------------------------------------
+> run_random_forest <- function(numCores, numLevels, numFolds.v, numTrees){
++     funcStart <- proc.time()  
++   
++     randForestModel <- rand_forest(mtry = tune(),
++                                    min_n=tune(),
++                                    trees=numTrees) %>%
++                                    # trees = 100) %>% #trees=numTrees) %>% 
++       set_engine("ranger") %>% 
++       set_mode("classification")
++     
++     forestWF <- workflow() %>% 
++       add_recipe(hauntedRecipe) %>% 
++       add_model(randForestModel)
++     
++     # create tuning grid
++     # forest_tuning_grid <- grid_regular(mtry(range = c(1,(ncol(baked)-1)) ),
++     #                                    min_n(),
++     #                                    levels = 2)
++     # 
++     # # split data for cross validation
++     # rfolds <- vfold_cv(train, v = 2, repeats=1)
++     
++     forest_tuning_grid <- grid_regular(mtry(range = c(1,(ncol(baked)-1)) ),
++                                        min_n(),
++                                        levels = numLevels)
++ 
++     # split data for cross validation
++     rfolds <- vfold_cv(train, v = numFolds.v, repeats=1)
++     
++     cl <- makePSOCKcluster(4)
++     # cl <- makePSOCKcluster(numCores)
++     doParallel::registerDoParallel(cl)
++     
++     # run cross validation
++     treeCVResults <- forestWF %>% 
++       tune_grid(resamples = rfolds,
++                 grid = forest_tuning_grid,
++                 metrics=metric_set(accuracy)) 
++     
++     # select best model
++     best_tuneForest <- treeCVResults %>% 
++       select_best("accuracy")
++     
++     # finalize workflow
++     finalForestWF <- 
++       forestWF %>% 
++       finalize_workflow(best_tuneForest) %>% 
++       fit(data=train)
++     
++     #   predict and export
++     outputCSV <-  predict_export(finalForestWF,"randomForest")
++     stopCluster(cl)
++     
++     ##############################################
++     
++     funcRunTimeSeconds <- (proc.time() - funcStart)[3]
++     period <- seconds_to_period(funcRunTimeSeconds)
++     
++     time <- sprintf('%02d:%02d:%02d', hour(period), minute(period), round(second(period),0)) 
++     
++     return(list(time,outputCSV))
++ }
+>     
 > 
-> cl <- makePSOCKcluster(5)
-> doParallel::registerDoParallel(cl)
 > 
-> cvStart <- proc.time()
-> #   fit model with cross validation
-> naiveResultsCV <- naiveWF %>% 
-+   tune_grid(resamples=naiveFolds,
-+             grid=naiveGrid,
-+             metric_set("accuracy"))
-Warning message:
-The `...` are not used in this function but one or more objects were passed: '' 
+> # Neural Network ---------------------------------------------------
+> nn_recipe <- recipe(type ~ ., data=train) %>%
++   update_role(id, new_role="id") %>%
++   step_mutate_at(color, fn = factor) %>% ## Turn color to factor then dummy encode color
++   step_dummy(color) %>% 
++   step_range(all_numeric_predictors(), min=0, max=1) #scale to [0,1]
 > 
-> cvStart - proc.time()
-    user   system  elapsed 
-  -0.305   -0.028 -235.854 
+> nn_model <- mlp(hidden_units = tune(),
++                 epochs = 50, #or 100 or 250
++                 activation="relu") %>%
++             set_engine("keras", verbose=0) %>% #verbose = 0 prints off less
++             set_mode("classification")
+> ########### Keras: https://stackoverflow.com/questions/44611325/r-keras-package-error-python-module-tensorflow-contrib-keras-python-keras-was-n
+> ###########  did all but step 4 from the answer install_github
+> 
+> 
+> # nn_model <- mlp(hidden_units = tune(),
+> #                 epochs = 50) %>%  #or 100 or 250
+> #                 # activation="relu") %>%
+> #   set_engine("nnet") %>% #verbose = 0 prints off less
+> #   set_mode("classification")
+> 
+> nn_wf <- workflow() %>% 
++   add_recipe(nn_recipe) %>% 
++   add_model(nn_model)
+> 
+> nn_tuneGrid <- grid_regular(hidden_units(range=c(1, 50)),
++                             levels=10)
+> 
+> nn_folds <- vfold_cv(train, v = 5, repeats=1)
+> 
+> tuned_nn <- nn_wf %>%
++     tune_grid(grid=nn_tuneGrid,
++               resamples=nn_folds,
++               metrics=metric_set(accuracy))
+2023-11-06 15:35:08.297447: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2023-11-06 15:35:10.934209: I tensorflow/core/common_runtime/process_util.cc:146] Creating new thread pool with default inter op setting: 2. Tune using inter_op_parallelism_threads for best performance.
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 20ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 6ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 1ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 4ms/step
+WARNING:tensorflow:5 out of the last 13 calls to <function Model.make_predict_function.<locals>.predict_function at 0x7f952061b130> triggered tf.function retracing. Tracing is expensive and the excessive number of tracings could be due to (1) creating @tf.function repeatedly in a loop, (2) passing tensors with different shapes, (3) passing Python objects instead of tensors. For (1), please define your @tf.function outside of the loop. For (2), @tf.function has reduce_retracing=True option that can avoid unnecessary retracing. For (3), please refer to https://www.tensorflow.org/guide/function#controlling_retracing and https://www.tensorflow.org/api_docs/python/tf/function for  more details.
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 21ms/step
+WARNING:tensorflow:5 out of the last 13 calls to <function Model.make_predict_function.<locals>.predict_function at 0x7f9520619e10> triggered tf.function retracing. Tracing is expensive and the excessive number of tracings could be due to (1) creating @tf.function repeatedly in a loop, (2) passing tensors with different shapes, (3) passing Python objects instead of tensors. For (1), please define your @tf.function outside of the loop. For (2), @tf.function has reduce_retracing=True option that can avoid unnecessary retracing. For (3), please refer to https://www.tensorflow.org/guide/function#controlling_retracing and https://www.tensorflow.org/api_docs/python/tf/function for  more details.
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 15ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 9ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 15ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 22ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 15ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 15ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - ETA: 0s3/3 [==============================] - 0s 30ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 13ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 14ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 19ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 19ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 20ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 20ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 1ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 23ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 8ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 1ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 23ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 17ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 18ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 12ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - ETA: 0s3/3 [==============================] - 0s 31ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 4ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 14ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 17ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 2ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 23ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 19ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 8ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 2ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 7ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 18ms/step
+1/3 [=========>....................] - ETA: 0s2/3 [===================>..........] - ETA: 0s3/3 [==============================] - 0s 26ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 13ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - ETA: 0s3/3 [==============================] - 0s 26ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 6ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 23ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 2ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 2ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 15ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 21ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 20ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 23ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 7ms/step
+1/3 [=========>....................] - ETA: 0s3/3 [==============================] - 0s 14ms/step
 > 
 > #   find best tune
-> naiveBestTune <- naiveResultsCV %>%
+> nn_bestTune <- tuned_nn %>%
 +   select_best("accuracy")
 > 
 > #   finalize the Workflow & fit it
-> naiveFinalWF <-
-+   naiveWF %>%
-+   finalize_workflow(naiveBestTune) %>%
+> final_nn_wf <- nn_wf %>%
++   finalize_workflow(nn_bestTune) %>%
 +   fit(data=train)
 > 
 > #   predict and export
-> predict_export(naiveFinalWF,"naiveBayesGLM5.csv")
+> outputCSV <-  predict_export(final_nn_wf,"nnKeras")
+ 1/17 [>.............................] - ETA: 0s 4/17 [======>.......................] - ETA: 0s17/17 [==============================] - 0s 5ms/step
 > 
+> # outputCSV <-  predict_export(final_nn_wf,"nn_Nnet")
 > 
-> stopCluster(cl)
+> # tuned_nn %>% collect_metrics() %>%
+> #   filter(.metric=="accuracy") %>%
+> #   ggplot(aes(x=hidden_units, y=mean)) + geom_line()
 > 
 > 
 > 
 > proc.time()
-   user  system elapsed 
-  4.550   0.361 240.871 
+    user   system  elapsed 
+3059.710 4591.685  206.329 
