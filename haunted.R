@@ -28,10 +28,11 @@ hauntedRecipe <- recipe(type ~ . , data=train) %>%
                     step_lencode_glm(all_nominal_predictors(), outcome=vars(type)) %>% 
                     step_kpca_rbf(all_predictors()) 
 
-# prep(hauntedRecipe,
-#       verbose = T,
-#       retain = T,
-#       strings_as_factors = T)
+prepped <- prep(hauntedRecipe,
+      verbose = T,
+      retain = T,
+      strings_as_factors = T)
+baked <- bake(prepped, new_data=train)
 
 
 ## Naive Bayes -------------------------------------------------------------
@@ -147,7 +148,8 @@ run_random_forest <- function(numCores, numLevels, numFolds.v, numTrees){
   
     randForestModel <- rand_forest(mtry = tune(),
                                    min_n=tune(),
-                                   trees=numTrees) %>% 
+                                   trees=numTrees) %>%
+                                   # trees = 100) %>% #trees=numTrees) %>% 
       set_engine("ranger") %>% 
       set_mode("classification")
     
@@ -156,15 +158,22 @@ run_random_forest <- function(numCores, numLevels, numFolds.v, numTrees){
       add_model(randForestModel)
     
     # create tuning grid
-    forest_tuning_grid <- grid_regular(mtry(range = c(1L, unknown()) ),
+    # forest_tuning_grid <- grid_regular(mtry(range = c(1,(ncol(baked)-1)) ),
+    #                                    min_n(),
+    #                                    levels = 2)
+    # 
+    # # split data for cross validation
+    # rfolds <- vfold_cv(train, v = 2, repeats=1)
+    
+    forest_tuning_grid <- grid_regular(mtry(range = c(1,(ncol(baked)-1)) ),
                                        min_n(),
                                        levels = numLevels)
-    
+
     # split data for cross validation
     rfolds <- vfold_cv(train, v = numFolds.v, repeats=1)
     
-    
-    cl <- makePSOCKcluster(numCores)
+    cl <- makePSOCKcluster(4)
+    # cl <- makePSOCKcluster(numCores)
     doParallel::registerDoParallel(cl)
     
     # run cross validation
