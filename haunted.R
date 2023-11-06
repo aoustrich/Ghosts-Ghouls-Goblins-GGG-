@@ -6,6 +6,7 @@ library(naivebayes,quietly=T) # naive bayes
 library(embed,quietly=T) #used for target encoding
 library(parallel,quietly=T)
 library(kernlab,quietly=T) #for svm
+library(keras) # for neural net
 
 source("myFunctions.R")
 
@@ -17,7 +18,7 @@ train <- vroom("./Data/train.csv")
 ## Recipes ------------------------------------------------------------------
 
 #   Treat `id` as a predictor (somehow this makes the Naive Bayes models better)
-hauntedRecipeNoID <- recipe(type ~ . , data=train) %>% 
+# hauntedRecipeNoID <- recipe(type ~ . , data=train) %>% 
                         step_lencode_glm(all_nominal_predictors(), outcome=vars(type)) 
 
 # prep(hauntedRecipeNoID,verbose=T)
@@ -31,7 +32,7 @@ hauntedRecipe <- recipe(type ~ . , data=train) %>%
 prepped<- prep(hauntedRecipe)
 baked <- bake(prepped, new_data=train)
 
-print(ncol(baked))
+
 ## Naive Bayes -------------------------------------------------------------
 run_naive_bayes <- function(numCores, numLevels, numFolds.v){
   funcStart <- proc.time()
@@ -203,3 +204,60 @@ run_random_forest <- function(numCores, numLevels, numFolds.v, numTrees){
     return(list(time,outputCSV))
 }
     
+
+
+# Neural Network ---------------------------------------------------
+nn_recipe <- recipe(type ~ ., data=train) %>%
+  update_role(id, new_role="id") %>%
+  step_mutate_at(color, fn = factor) %>% ## Turn color to factor then dummy encode color
+  step_dummy(color) %>% 
+  step_range(all_numeric_predictors(), min=0, max=1) #scale to [0,1]
+
+nn_model <- mlp(hidden_units = tune(),
+                epochs = 50, #or 100 or 250
+                activation="relu") %>%
+            set_engine("keras", verbose=0) %>% #verbose = 0 prints off less
+            set_mode("classification")
+########### Keras: https://stackoverflow.com/questions/44611325/r-keras-package-error-python-module-tensorflow-contrib-keras-python-keras-was-n
+###########  did all but step 4 from the answer install_github
+
+
+# nn_model <- mlp(hidden_units = tune(),
+#                 epochs = 50) %>%  #or 100 or 250
+#                 # activation="relu") %>%
+#   set_engine("nnet") %>% #verbose = 0 prints off less
+#   set_mode("classification")
+
+nn_wf <- workflow() %>% 
+  add_recipe(nn_recipe) %>% 
+  add_model(nn_model)
+
+nn_tuneGrid <- grid_regular(hidden_units(range=c(1, 50)),
+                            levels=10)
+
+nn_folds <- vfold_cv(train, v = 5, repeats=1)
+
+tuned_nn <- nn_wf %>%
+    tune_grid(grid=nn_tuneGrid,
+              resamples=nn_folds,
+              metrics=metric_set(accuracy))
+
+#   find best tune
+nn_bestTune <- tuned_nn %>%
+  select_best("accuracy")
+
+#   finalize the Workflow & fit it
+final_nn_wf <- nn_wf %>%
+  finalize_workflow(nn_bestTune) %>%
+  fit(data=train)
+
+#   predict and export
+outputCSV <-  predict_export(final_nn_wf,"nnKeras")
+
+# outputCSV <-  predict_export(final_nn_wf,"nn_Nnet")
+
+# tuned_nn %>% collect_metrics() %>%
+#   filter(.metric=="accuracy") %>%
+#   ggplot(aes(x=hidden_units, y=mean)) + geom_line()
+
+
