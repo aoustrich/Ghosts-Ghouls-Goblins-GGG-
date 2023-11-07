@@ -35,10 +35,14 @@ predict_export <- function(workflowName, newFileName){
 parseArgValues <- function(argsList,argument){
   # Parse the arguments
   for (i in 1:length(argsList)) {
-    if (argsList[i] == argument) {
+    if ( !(argument %in% argsList) ){
+      arg_value <- NA 
+    }
+    
+    else if (argsList[i] == argument) {
       arg_value <- as.numeric(argsList[i + 1])
     }
-    else{ arg_value <- NA }
+    
   }
   return(arg_value)
 }

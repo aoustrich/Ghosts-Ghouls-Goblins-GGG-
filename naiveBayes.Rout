@@ -1,7 +1,7 @@
 
-R version 4.3.1 (2023-06-16) -- "Beagle Scouts"
-Copyright (C) 2023 The R Foundation for Statistical Computing
-Platform: x86_64-pc-linux-gnu (64-bit)
+R version 4.2.2 (2022-10-31) -- "Innocent and Trusting"
+Copyright (C) 2022 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin17.0 (64-bit)
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
@@ -22,7 +22,7 @@ Type 'q()' to quit R.
 ✔ broom        1.0.5     ✔ recipes      1.0.8
 ✔ dials        1.2.0     ✔ rsample      1.2.0
 ✔ dplyr        1.1.3     ✔ tibble       3.2.1
-✔ ggplot2      3.4.4     ✔ tidyr        1.3.0
+✔ ggplot2      3.4.3     ✔ tidyr        1.3.0
 ✔ infer        1.0.5     ✔ tune         1.1.2
 ✔ modeldata    1.2.0     ✔ workflows    1.1.3
 ✔ parsnip      1.1.1     ✔ workflowsets 1.0.1
@@ -46,7 +46,7 @@ The following object is masked from ‘package:scales’:
 
 ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
 ✔ forcats   1.0.0     ✔ readr     2.1.4
-✔ lubridate 1.9.3     ✔ stringr   1.5.0
+✔ lubridate 1.9.2     ✔ stringr   1.5.0
 ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
 ✖ readr::col_character()   masks vroom::col_character()
 ✖ readr::col_date()        masks vroom::col_date()
@@ -128,19 +128,20 @@ dbl (5): id, bone_length, rotting_flesh, hair_length, has_soul
 > cores <- parseArgValues(args,"-C")
 > levels <- parseArgValues(args,"-L")
 > folds <- parseArgValues(args,"-V")
+> trees <- parseArgValues(args,"-T")
 > 
-> typeof(cores)
-[1] "logical"
+> 
 > print(cores)
-[1] NA
+[1] 1
 > 
-> typeof(levels)
-[1] "logical"
+> 
 > print(levels)
-[1] NA
-> typeof(folds)
-[1] "logical"
+[1] 2
+> 
 > print(folds)
+[1] 3
+> 
+> print(trees)
 [1] NA
 > 
 > #results <- run_naive_bayes(cores, levels, folds)
@@ -149,4 +150,4 @@ dbl (5): id, bone_length, rotting_flesh, hair_length, has_soul
 > 
 > proc.time()
    user  system elapsed 
-  5.871   0.370   5.189 
+  4.710   0.464   5.985 

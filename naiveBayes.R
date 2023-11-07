@@ -6,15 +6,8 @@ args <- commandArgs(trailingOnly = TRUE)
 cores <- parseArgValues(args,"-C")
 levels <- parseArgValues(args,"-L")
 folds <- parseArgValues(args,"-V")
+trees <- parseArgValues(args,"-T")
 
-typeof(cores)
-print(cores)
+results <- run_naive_bayes(cores, levels, folds)
 
-typeof(levels)
-print(levels)
-typeof(folds)
-print(folds)
-
-#results <- run_naive_bayes(cores, levels, folds)
-
-#store_print(results,cores,levels,folds)
+store_print(results,cores,levels,folds)
