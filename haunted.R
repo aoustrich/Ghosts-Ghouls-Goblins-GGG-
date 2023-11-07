@@ -7,7 +7,6 @@ library(embed,quietly=T) #used for target encoding
 library(parallel,quietly=T)
 library(kernlab,quietly=T) #for svm
 library(keras) # for neural net
-library(tensorflow)
 
 source("myFunctions.R")
 
@@ -20,7 +19,7 @@ train <- vroom("./Data/train.csv")
 
 #   Treat `id` as a predictor (somehow this makes the Naive Bayes models better)
 # hauntedRecipeNoID <- recipe(type ~ . , data=train) %>% 
-#                        step_lencode_glm(all_nominal_predictors(), outcome=vars(type)) 
+                        step_lencode_glm(all_nominal_predictors(), outcome=vars(type)) 
 
 # prep(hauntedRecipeNoID,verbose=T)
 
@@ -215,7 +214,7 @@ nn_recipe <- recipe(type ~ ., data=train) %>%
   step_range(all_numeric_predictors(), min=0, max=1) #scale to [0,1]
 
 nn_model <- mlp(hidden_units = tune(),
-                epochs = 50, #or 100 or 250
+                epochs = 100, #or 100 or 250
                 activation="relu") %>%
             set_engine("keras", verbose=0) %>% #verbose = 0 prints off less
             set_mode("classification")
@@ -233,10 +232,10 @@ nn_wf <- workflow() %>%
   add_recipe(nn_recipe) %>% 
   add_model(nn_model)
 
-nn_tuneGrid <- grid_regular(hidden_units(range=c(1, 50)),
-                            levels=10)
+nn_tuneGrid <- grid_regular(hidden_units(range=c(1, 100)),
+                            levels=25)
 
-nn_folds <- vfold_cv(train, v = 5, repeats=1)
+nn_folds <- vfold_cv(train, v = 10, repeats=1)
 
 tuned_nn <- nn_wf %>%
     tune_grid(grid=nn_tuneGrid,
@@ -253,7 +252,7 @@ final_nn_wf <- nn_wf %>%
   fit(data=train)
 
 #   predict and export
-outputCSV <-  predict_export(final_nn_wf,"nnKeras")
+outputCSV <-  predict_export(final_nn_wf,"nn_Keras")
 
 # outputCSV <-  predict_export(final_nn_wf,"nn_Nnet")
 
