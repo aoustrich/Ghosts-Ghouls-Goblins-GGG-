@@ -18,8 +18,12 @@ train <- vroom("./Data/train.csv")
 ## Recipes ------------------------------------------------------------------
 
 #   Treat `id` as a predictor (somehow this makes the Naive Bayes models better)
-# hauntedRecipeNoID <- recipe(type ~ . , data=train) %>% 
-#                        step_lencode_glm(all_nominal_predictors(), outcome=vars(type)) 
+hauntedRecipeNoID <- recipe(type ~ . , data=train) %>% 
+                        step_lencode_glm(all_nominal_predictors(), outcome=vars(type)) 
+
+
+klaR_recipe <- recipe(type ~ . , data=train) %>%
+	step_mutate_at(color, fn = factor)
 
 # prep(hauntedRecipeNoID,verbose=T)
 
@@ -39,13 +43,16 @@ run_naive_bayes <- function(numCores, numLevels, numFolds.v){
   #   model
   naiveModel <- naive_Bayes(Laplace=tune(), smoothness=tune()) %>% 
     set_mode("classification") %>% 
-    set_engine("naivebayes")
+    set_engine("klaR")
   
   #   workflow
   naiveWF <- workflow() %>% 
-    add_recipe(hauntedRecipeNoID) %>% 
+   # add_recipe(hauntedRecipeNoID) %>% 	##### switch recipe to klaR_recipe 
+    add_recipe(klaR_recipe) %>%
     add_model(naiveModel)
-  
+	  
+
+
   #   tuning
   naiveGrid <- grid_regular(Laplace(),
                             smoothness(),
@@ -74,7 +81,7 @@ run_naive_bayes <- function(numCores, numLevels, numFolds.v){
     fit(data=train)
   
   #   predict and export
-  outputCSV <-  predict_export(naiveFinalWF,"naiveBayesGLM")
+  outputCSV <-  predict_export(naiveFinalWF,"naiveBayes_klaR")
   stopCluster(cl)
   
   funcRunTimeSeconds <- (proc.time() - funcStart)[3]
@@ -208,7 +215,7 @@ run_random_forest <- function(numCores, numLevels, numFolds.v, numTrees){
 
 # Neural Network ---------------------------------------------------
 nn_recipe <- recipe(type ~ ., data=train) %>%
-  update_role(id, new_role="id") %>%
+#  update_role(id, new_role="id") %>%
   step_mutate_at(color, fn = factor) %>% ## Turn color to factor then dummy encode color
   step_dummy(color) %>% 
   step_range(all_numeric_predictors(), min=0, max=1) #scale to [0,1]
