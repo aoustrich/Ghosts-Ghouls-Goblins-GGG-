@@ -69,6 +69,7 @@ store_print <- function(results,cores,levels,folds,trees){
               col.names = FALSE,
               append = TRUE,
               sep = ",")
+  
   if (trees == 0){
       paste0(runTime, " to run on " , cores," Cores, ", levels, " Levels, ", folds, " Folds")
   } else{

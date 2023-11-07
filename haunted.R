@@ -214,57 +214,65 @@ run_random_forest <- function(numCores, numLevels, numFolds.v, numTrees){
 
 
 # Neural Network ---------------------------------------------------
-# nn_recipe <- recipe(type ~ ., data=train) %>%
-# #  update_role(id, new_role="id") %>%
-#   step_mutate_at(color, fn = factor) %>% ## Turn color to factor then dummy encode color
-#   step_dummy(color) %>% 
-#   step_range(all_numeric_predictors(), min=0, max=1) #scale to [0,1]
-# 
-# nn_model <- mlp(hidden_units = tune(),
-#                 epochs = 100, #or 100 or 250
-#                 activation="relu") %>%
-#             set_engine("keras", verbose=0) %>% #verbose = 0 prints off less
-#             set_mode("classification")
-# ########### Keras: https://stackoverflow.com/questions/44611325/r-keras-package-error-python-module-tensorflow-contrib-keras-python-keras-was-n
-# ###########  did all but step 4 from the answer install_github
-# 
-# 
-# # nn_model <- mlp(hidden_units = tune(),
-# #                 epochs = 50) %>%  #or 100 or 250
-# #                 # activation="relu") %>%
-# #   set_engine("nnet") %>% #verbose = 0 prints off less
-# #   set_mode("classification")
-# 
-# nn_wf <- workflow() %>% 
-#   add_recipe(nn_recipe) %>% 
-#   add_model(nn_model)
-# 
-# nn_tuneGrid <- grid_regular(hidden_units(range=c(1, 100)),
-#                             levels=25)
-# 
-# nn_folds <- vfold_cv(train, v = 10, repeats=1)
-# 
-# tuned_nn <- nn_wf %>%
-#     tune_grid(grid=nn_tuneGrid,
-#               resamples=nn_folds,
-#               metrics=metric_set(accuracy))
-# 
-# #   find best tune
-# nn_bestTune <- tuned_nn %>%
-#   select_best("accuracy")
-# 
-# #   finalize the Workflow & fit it
-# final_nn_wf <- nn_wf %>%
-#   finalize_workflow(nn_bestTune) %>%
-#   fit(data=train)
-# 
-# #   predict and export
-# outputCSV <-  predict_export(final_nn_wf,"nn_Keras")
-# 
-# # outputCSV <-  predict_export(final_nn_wf,"nn_Nnet")
-# 
-# # tuned_nn %>% collect_metrics() %>%
-# #   filter(.metric=="accuracy") %>%
-# #   ggplot(aes(x=hidden_units, y=mean)) + geom_line()
-# 
+run_nn <- function(numCores, numLevels, numFolds.v){
+  funcStart <- proc.time() 
+  
+  nn_recipe <- recipe(type ~ ., data=train) %>%
+  #  update_role(id, new_role="id") %>%
+    step_mutate_at(color, fn = factor) %>% ## Turn color to factor then dummy encode color
+    step_dummy(color) %>%
+    step_range(all_numeric_predictors(), min=0, max=1) #scale to [0,1]
+  
+  nn_model <- mlp(hidden_units = tune(),
+                  epochs = 100, #or 100 or 250
+                  activation="relu") %>%
+              set_engine("keras", verbose=0) %>% #verbose = 0 prints off less
+              set_mode("classification")
+  ########### Keras: https://stackoverflow.com/questions/44611325/r-keras-package-error-python-module-tensorflow-contrib-keras-python-keras-was-n
+  ###########  did all but step 4 from the answer install_github
+  
+  
+  # nn_model <- mlp(hidden_units = tune(),
+  #                 epochs = 50) %>%  #or 100 or 250
+  #                 # activation="relu") %>%
+  #   set_engine("nnet") %>% #verbose = 0 prints off less
+  #   set_mode("classification")
+  
+  nn_wf <- workflow() %>%
+    add_recipe(nn_recipe) %>%
+    add_model(nn_model)
+  
+  nn_tuneGrid <- grid_regular(hidden_units(range=c(1, 100)),
+                              levels=numLevels)
+  
+  nn_folds <- vfold_cv(train, v = numFolds.v, repeats=1)
+  
+  tuned_nn <- nn_wf %>%
+      tune_grid(grid=nn_tuneGrid,
+                resamples=nn_folds,
+                metrics=metric_set(accuracy))
+  
+  #   find best tune
+  nn_bestTune <- tuned_nn %>%
+    select_best("accuracy")
+  
+  #   finalize the Workflow & fit it
+  final_nn_wf <- nn_wf %>%
+    finalize_workflow(nn_bestTune) %>%
+    fit(data=train)
+  
+  #   predict and export
+  outputCSV <-  predict_export(final_nn_wf,"nn_Keras")
+  
+  
+  funcRunTimeSeconds <- (proc.time() - funcStart)[3]
+  period <- seconds_to_period(funcRunTimeSeconds)
+  
+  time <- sprintf('%02d:%02d:%02d', hour(period), minute(period), round(second(period),0)) 
+  
+  return(list(time,outputCSV))
+
+}
+
+
 
