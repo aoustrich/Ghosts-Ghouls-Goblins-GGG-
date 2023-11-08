@@ -177,15 +177,15 @@ run_random_forest <- function(numCores, numLevels, numFolds.v, numTrees){
     # split data for cross validation
     rfolds <- vfold_cv(train, v = numFolds.v, repeats=1)
     
-    cl <- makePSOCKcluster(4)
-    # cl <- makePSOCKcluster(numCores)
+    #cl <- makePSOCKcluster(4)
+    cl <- makePSOCKcluster(numCores)
     doParallel::registerDoParallel(cl)
     
     # run cross validation
     treeCVResults <- forestWF %>% 
       tune_grid(resamples = rfolds,
-                grid = forest_tuning_grid,
-                metrics=metric_set(accuracy)) 
+                grid = forest_tuning_grid)
+               # metrics=metric_set(accuracy)) 
     
     # select best model
     best_tuneForest <- treeCVResults %>% 

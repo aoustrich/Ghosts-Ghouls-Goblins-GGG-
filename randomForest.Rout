@@ -32,7 +32,7 @@ Type 'q()' to quit R.
 ✖ dplyr::filter()  masks stats::filter()
 ✖ dplyr::lag()     masks stats::lag()
 ✖ recipes::step()  masks stats::step()
-• Search for functions across packages at https://www.tidymodels.org/find/
+• Learn how to get started at https://www.tidymodels.org/start/
 
 Attaching package: ‘vroom’
 
@@ -98,6 +98,13 @@ The following object is masked from ‘package:scales’:
 
     alpha
 
+
+Attaching package: ‘keras’
+
+The following object is masked from ‘package:yardstick’:
+
+    get_weights
+
 Rows: 529 Columns: 6
 ── Column specification ────────────────────────────────────────────────────────
 Delimiter: ","
@@ -114,7 +121,6 @@ dbl (5): id, bone_length, rotting_flesh, hair_length, has_soul
 
 ℹ Use `spec()` to retrieve the full column specification for this data.
 ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
-[1] 7
 > source("myFunctions.R")
 > 
 > args <- commandArgs(trailingOnly = TRUE)
@@ -125,29 +131,18 @@ dbl (5): id, bone_length, rotting_flesh, hair_length, has_soul
 > trees <- parseArgValues(args,"-T")
 > 
 > results <- run_random_forest(cores, levels, folds,trees)
-Error in `map()`:
-ℹ In index: 1.
-ℹ With name: mtry.
-Caused by error in `seq.default()`:
-! 'length.out' must be a non-negative number
+Error in `estimate_tune_results()`:
+! All models failed. Run `show_notes(.Last.tune.result)` for more information.
 Backtrace:
-     ▆
-  1. ├─global run_random_forest(cores, levels, folds, trees)
-  2. │ ├─dials::grid_regular(...)
-  3. │ └─dials:::grid_regular.param(...)
-  4. │   └─dials:::make_regular_grid(...)
-  5. │     └─purrr::map(params, value_seq, n = levels, original = original)
-  6. │       └─purrr:::map_("list", .x, .f, ..., .progress = .progress)
-  7. │         ├─purrr:::with_indexed_errors(...)
-  8. │         │ └─base::withCallingHandlers(...)
-  9. │         ├─purrr:::call_with_cleanup(...)
- 10. │         └─dials (local) .f(.x[[i]], ...)
- 11. │           └─dials:::value_seq_int(object, n, original)
- 12. │             ├─base::seq(...)
- 13. │             └─base::seq.default(...)
- 14. │               └─base::stop("'length.out' must be a non-negative number")
- 15. └─base::.handleSimpleError(...)
- 16.   └─purrr (local) h(simpleError(msg, call))
- 17.     └─cli::cli_abort(...)
- 18.       └─rlang::abort(...)
+    ▆
+ 1. ├─global run_random_forest(cores, levels, folds, trees)
+ 2. │ └─treeCVResults %>% select_best("accuracy")
+ 3. ├─tune::select_best(., "accuracy")
+ 4. └─tune:::select_best.tune_results(., "accuracy")
+ 5.   ├─tune::show_best(x, metric = metric, n = 1)
+ 6.   └─tune:::show_best.tune_results(x, metric = metric, n = 1)
+ 7.     └─tune::estimate_tune_results(x)
+ 8.       └─rlang::abort("All models failed. Run `show_notes(.Last.tune.result)` for more information.")
+Warning message:
+All models failed. Run `show_notes(.Last.tune.result)` for more information. 
 Execution halted
