@@ -7,6 +7,9 @@ library(embed,quietly=T) #used for target encoding
 library(parallel,quietly=T)
 library(kernlab,quietly=T) #for svm
 library(keras) # for neural net
+library(bonsai) # boosted trees & bart
+library(lightgbm) # boosted trees & bart
+library(dbarts) # bart
 
 source("myFunctions.R")
 
@@ -20,6 +23,8 @@ train <- vroom("./Data/train.csv")
 #   Treat `id` as a predictor (somehow this makes the Naive Bayes models better)
 hauntedRecipeNoID <- recipe(type ~ . , data=train) %>% 
                         step_lencode_glm(all_nominal_predictors(), outcome=vars(type)) 
+prpped <- prep(hauntedRecipeNoID)
+bakd <- bake(prpped, new_data=train)
 
 
 klaR_recipe <- recipe(type ~ . , data=train) %>%
@@ -30,8 +35,8 @@ klaR_recipe <- recipe(type ~ . , data=train) %>%
 #   Ignore `id` by updating its role
 hauntedRecipe <- recipe(type ~ . , data=train) %>% 
                     update_role(id,new_role="ID") %>%
-                    step_lencode_glm(all_nominal_predictors(), outcome=vars(type)) %>% 
-                    step_kpca_rbf(all_predictors()) 
+                    step_lencode_glm(all_nominal_predictors(), outcome=vars(type)) #%>% 
+                    # step_kpca_rbf(all_predictors()) 
 
 prepped<- prep(hauntedRecipe)
 baked <- bake(prepped, new_data=train)
@@ -276,3 +281,90 @@ run_nn <- function(numCores, numLevels, numFolds.v){
 
 
 
+
+
+# Boosted Trees -----------------------------------------------------------
+boost_model <- boost_tree(tree_depth=tune(),
+                          trees=tune(),
+                          learn_rate=tune()) %>%
+set_engine("lightgbm") %>% #or "xgboost" but lightgbm is faster
+  set_mode("classification")
+
+boostWF <- workflow() %>% 
+  add_model(boost_model) %>% 
+  add_recipe(hauntedRecipe)
+
+#   tuning grid
+boostGrid <- grid_regular(tree_depth(),
+                          trees(),
+                          learn_rate(),
+                          levels = 15)
+# folds
+boostFolds <- vfold_cv(train, v=10, repeats=1)
+
+cl <- makePSOCKcluster(4)
+doParallel::registerDoParallel(cl)
+
+#   fit model with cross validation
+s <- proc.time()
+boostResultsCV <- boostWF %>% 
+  tune_grid(resamples=boostFolds,
+            grid=boostGrid,
+            metrics=metric_set(accuracy))
+
+#   find best tune
+boostBestTune <- boostResultsCV %>%
+  select_best("accuracy")
+
+#   finalize the Workflow & fit it
+boostFinalWF <- boostWF %>%
+  finalize_workflow(boostBestTune) %>%
+  fit(data=train)
+
+#   predict and export
+outputCSV <-  predict_export(boostFinalWF,"lightGBM")
+stopCluster(cl)
+proc.time()-s
+
+# BART --------------------------------------------------------------------
+
+# 
+# bart_model <- parsnip::bart(trees=tune()) %>% # BART figures out depth and learn_rate
+#   set_engine("dbarts") %>% # might need to install
+#   set_mode("classification")
+# 
+# bartWF <- workflow() %>% 
+#   add_model(bart_model) %>% 
+#   # add_recipe(hauntedRecipeNoID)
+#   add_recipe(hauntedRecipe)
+# 
+# #   tuning
+# bartGrid <- grid_regular(trees(),
+#                               levels = 15)
+# 
+# #   folds for cross validation
+# bartFolds <- vfold_cv(train, v=10, repeats=1)
+# 
+# cl <- makePSOCKcluster(4)
+# doParallel::registerDoParallel(cl)
+# 
+# #   fit model with cross validation
+# s <- proc.time()
+# bartResultsCV <- bartWF %>% 
+#   tune_grid(resamples=bartFolds,
+#             grid=bartGrid,
+#             metrics=metric_set(accuracy))
+# 
+# #   find best tune
+# bartBestTune <- bartResultsCV %>%
+#   select_best("accuracy")
+# 
+# #   finalize the Workflow & fit it
+# bartFinalWF <- bartWF %>%
+#   finalize_workflow(bartBestTune) %>%
+#   fit(data=train)
+# 
+# #   predict and export
+# outputCSV <-  predict_export(bartFinalWF,"bart")
+# stopCluster(cl)
+# proc.time()-s
