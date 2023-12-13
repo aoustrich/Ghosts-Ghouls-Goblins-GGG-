@@ -298,7 +298,7 @@ boostWF <- workflow() %>%
 boostGrid <- grid_regular(tree_depth(),
                           trees(),
                           learn_rate(),
-                          levels = 15)
+                          levels = 20)
 # folds
 boostFolds <- vfold_cv(train, v=10, repeats=1)
 
